@@ -110,6 +110,12 @@ def assess_pace(wpm):
 @app.route('/analyze', methods=['POST'])
 def analyze_video():
     print("=== ANALYZE ENDPOINT HIT ===")
+    
+    # Check API key first
+    if not os.getenv('OPENAI_API_KEY'):
+        print("ERROR: OPENAI_API_KEY not set!")
+        return jsonify({'error': 'OpenAI API key not configured on server'}), 500
+    
     try:
         if 'video' not in request.files:
             print("ERROR: No video file in request")
@@ -117,6 +123,16 @@ def analyze_video():
         
         video_file = request.files['video']
         print(f"Received video: {video_file.filename}")
+        
+        # Check file size (limit to 25MB to avoid issues)
+        video_file.seek(0, 2)  # Seek to end
+        file_size = video_file.tell()
+        video_file.seek(0)  # Reset to beginning
+        
+        print(f"File size: {file_size / (1024*1024):.2f} MB")
+        
+        if file_size > 25 * 1024 * 1024:  # 25MB limit
+            return jsonify({'error': 'Video file too large. Please use a video under 25MB (about 1 minute).'}), 400
         
         # Create temporary files
         with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as video_temp:
