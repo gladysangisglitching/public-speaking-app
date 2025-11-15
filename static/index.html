@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Public Speaking Assessment</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f7;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            padding: 40px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .header {
+            margin-bottom: 30px;
+        }
+
+        .back-btn {
+            background: none;
+            border: none;
+            color: #666;
+            font-size: 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 15px;
+            padding: 8px;
+        }
+
+        .back-btn:hover {
+            color: #333;
+        }
+        
+        h1 {
+            color: #1d1d1f;
+            margin-bottom: 5px;
+            font-size: 2.2em;
+            font-weight: 600;
+        }
+        
+        .analyzed-date {
+            color: #86868b;
+            font-size: 0.95em;
+        }
+        
+        .upload-section {
+            border: 2px dashed #d2d2d7;
+            border-radius: 12px;
+            padding: 60px 40px;
+            text-align: center;
+            margin-bottom: 30px;
+            background: #fafafa;
+            transition: all 0.3s;
+        }
+        
+        .upload-section:hover {
+            border-color: #0071e3;
+            background: #f5f8ff;
+        }
+        
+        input[type="file"] {
+            display: none;
+        }
+        
+        .upload-btn {
+            background: #0071e3;
+            color: white;
+            padding: 12px 32px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 500;
+        }
+        
+        .upload-btn:hover {
+            background: #0077ed;
+        }
+        
+        .processing {
+            text-align: center;
+            padding: 60px 30px;
+            display: none;
+        }
+        
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #0071e3;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .results {
+            display: none;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 16px;
+            margin-bottom: 30px;
+        }
+
+        .metric-card {
+            background: white;
+            border: 1px solid #e5e5e7;
+            border-radius: 12px;
+            padding: 20px;
+            transition: all 0.2s;
+        }
+
+        .metric-card:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            transform: translateY(-2px);
+        }
+
+        .metric-icon {
+            color: #86868b;
+            font-size: 0.9em;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .metric-value {
+            font-size: 2em;
+            font-weight: 700;
+            color: #1d1d1f;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 30px;
+            background: #f5f5f7;
+            padding: 4px;
+            border-radius: 10px;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 12px 20px;
+            border: none;
+            background: transparent;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.95em;
+            font-weight: 500;
+            color: #1d1d1f;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .tab:hover {
+            background: rgba(0,0,0,0.05);
+        }
+
+        .tab.active {
+            background: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.3s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .content-card {
+            background: white;
+            border: 1px solid #e5e5e7;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+        }
+
+        .content-title {
+            font-size: 1.4em;
+            font-weight: 600;
+            color: #1d1d1f;
+            margin-bottom: 8px;
+        }
+
+        .content-description {
+            color: #86868b;
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+
+        .media-player {
+            border-radius: 12px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+
+        audio {
+            width: 100%;
+            background: linear-gradient(135deg, #f8f9ff 0%, #e8e9ff 100%);
+            border-radius: 12px;
+            padding: 10px;
+            border: 2px solid #0071e3;
+            box-shadow: 0 4px 15px rgba(0, 113, 227, 0.15);
+        }
+
+        video {
+            width: 100%;
+            max-height: 500px;
+            background: #000;
+            border-radius: 12px;
+        }
+
+        .assessment-badge {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: 600;
+            margin-top: 12px;
+        }
+
+        .badge-excellent {
+            background: #d1f4e0;
+            color: #0f6938;
+        }
+
+        .badge-good {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .checklist {
+            margin-top: 20px;
+        }
+
+        .checklist h4 {
+            font-size: 1.1em;
+            margin-bottom: 12px;
+            color: #1d1d1f;
+        }
+
+        .checklist ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .checklist li {
+            padding: 10px 0;
+            color: #1d1d1f;
+            border-bottom: 1px solid #e5e5e7;
+        }
+
+        .checklist li:last-child {
+            border-bottom: none;
+        }
+
+        .checklist li::before {
+            content: "• ";
+            color: #0071e3;
+            font-weight: bold;
+            margin-right: 8px;
+        }
+
+        .word-cloud-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin: 24px 0;
+            padding: 20px;
+            background: #fafafa;
+            border-radius: 12px;
+            min-height: 120px;
+            align-items: flex-start;
+        }
+
+        .cloud-word {
+            background: white;
+            border: 1px solid #e5e5e7;
+            border-radius: 8px;
+            padding: 10px 16px;
+            font-size: 0.95em;
+            color: #1d1d1f;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            cursor: default;
+            animation: fadeIn 0.4s ease-out backwards;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .cloud-word:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            border-color: #0071e3;
+        }
+
+        .cloud-word-text {
+            font-weight: 600;
+        }
+
+        .cloud-word-count {
+            color: #86868b;
+            font-size: 0.9em;
+        }
+
+        .word-cloud-empty {
+            color: #86868b;
+            font-size: 1em;
+            text-align: center;
+            width: 100%;
+            padding: 20px;
+        }
+
+        .filler-summary {
+            color: #0071e3;
+            font-size: 0.95em;
+            margin-bottom: 20px;
+        }
+
+        .transcript-box {
+            background: #fafafa;
+            padding: 24px;
+            border-radius: 12px;
+            line-height: 1.8;
+            color: #1d1d1f;
+            font-size: 1.05em;
+        }
+
+        .filler-word {
+            background: #fff176;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+
+        .footer-btn {
+            background: #0071e3;
+            color: white;
+            padding: 14px 40px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            cursor: pointer;
+            display: block;
+            margin: 40px auto 0;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .footer-btn:hover {
+            background: #0077ed;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0,113,227,0.3);
+        }
+        
+        .filename {
+            margin-top: 15px;
+            color: #0071e3;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Upload Section -->
+        <div id="uploadView">
+            <div class="header">
+                <h1>Master Your Voice 📣</h1>
+                <p class="analyzed-date">Upload a 1-minute video to analyze your speaking skills</p>
+            </div>
+            
+            <div class="upload-section">
+                <div style="font-size: 3em; margin-bottom: 20px;">📹</div>
+                <p style="margin-bottom: 20px; font-size: 1.1em; color: #86868b;">Upload your video (MP4, WebM, MOV)</p>
+                <input type="file" id="videoInput" accept="video/*">
+                <button class="upload-btn" onclick="document.getElementById('videoInput').click()">
+                    Choose Video
+                </button>
+                <div class="filename" id="filename"></div>
+            </div>
+        </div>
+        
+        <!-- Processing -->
+        <div class="processing" id="processing">
+            <div class="spinner"></div>
+            <p style="color: #1d1d1f; font-size: 1.1em;">Processing your video...</p>
+            <p style="color: #86868b; margin-top: 10px;">This may take 30-60 seconds</p>
+        </div>
+        
+        <!-- Results View -->
+        <div class="results" id="results">
+            <div class="header">
+                <button class="back-btn" onclick="resetApp()">← Back</button>
+                <h1>Your Assessment</h1>
+                <p class="analyzed-date" id="analyzedDate">Analyzed on 10/26/2025</p>
+            </div>
+
+            <!-- Tabs -->
+            <div class="tabs">
+                <button class="tab active" onclick="switchTab('audio')">
+                    🔊 Tone & Rate of Speech
+                </button>
+                <button class="tab" onclick="switchTab('video')">
+                    🎥 Body Language Analysis
+                </button>
+                <button class="tab" onclick="switchTab('transcript')">
+                    📄 Transcript
+                </button>
+            </div>
+
+            <!-- Audio Tab -->
+            <div class="tab-content active" id="audioTab">
+                <div class="content-card">
+                    <h2 class="content-title">Audio Analysis</h2>
+                    <p class="content-description">Listen to your speech without visual distractions. Focus on your tone, pace, and vocal delivery.</p>
+                    
+                    <div class="media-player">
+                        <audio id="audioOnly" controls></audio>
+                    </div>
+
+                    <div class="metrics-grid" style="margin-top: 24px;">
+                        <div class="metric-card">
+                            <div class="metric-icon">📊 Speech Rate</div>
+                            <div class="metric-value" id="speechRate">-- wpm</div>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 24px;">
+                        <strong style="color: #1d1d1f;">Assessment:</strong>
+                        <span class="assessment-badge" id="ratebadge"></span>
+                        <p style="color: #86868b; margin-top: 8px;" id="rateAssessment"></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Video Tab -->
+            <div class="tab-content" id="videoTab">
+                <div class="content-card">
+                    <h2 class="content-title">Body Language Review</h2>
+                    <p class="content-description">Watch your video without sound to focus on your gestures, posture, and non-verbal communication.</p>
+                    
+                    <div class="media-player">
+                        <video id="videoOnly" controls muted controlsList="nodownload noremoteplayback"></video>
+                    </div>
+
+                    <div class="checklist">
+                        <h4>Things to observe:</h4>
+                        <ul>
+                            <li>Are you making eye contact with the camera?</li>
+                            <li>Is your posture confident and open?</li>
+                            <li>Are your gestures natural and purposeful?</li>
+                            <li>Do you appear engaged and energetic?</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Transcript Tab -->
+            <div class="tab-content" id="transcriptTab">
+                <div class="content-card">
+                    <h2 class="content-title">Transcript & Filler Words</h2>
+                    <p class="content-description">Review your speech text with filler words highlighted in yellow.</p>
+                    
+                    <div class="metrics-grid" style="margin-bottom: 24px;">
+                        <div class="metric-card">
+                            <div class="metric-icon">🎤 Total Filler Words</div>
+                            <div class="metric-value" id="fillerWords">--</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-icon">⚡ Filler Rate</div>
+                            <div class="metric-value" id="fillerRate">-- /min</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-icon">📊 Filler Percentage</div>
+                            <div class="metric-value" id="fillerPercentage">--%</div>
+                        </div>
+                    </div>
+
+                    <h3 style="font-size: 1.2em; margin-bottom: 12px; color: #1d1d1f;">Word Cloud</h3>
+                    <p style="color: #86868b; margin-bottom: 16px; font-size: 0.95em;">Your most frequently used filler words</p>
+                    <div class="word-cloud-container" id="wordCloud">
+                        <div class="word-cloud-empty">No filler words detected! 🎉</div>
+                    </div>
+
+                    <h3 style="font-size: 1.2em; margin-top: 32px; margin-bottom: 12px; color: #1d1d1f;">Full Transcript</h3>
+                    <div class="transcript-box" id="transcript">
+                        Transcription will appear here...
+                    </div>
+                </div>
+            </div>
+
+            <button class="footer-btn" onclick="resetApp()">Analyze Another Video</button>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://127.0.0.1:5000';
+        
+        let videoFile = null;
+        let assessmentData = null;
+        let currentTab = 'audio';
+        const fillerWords = ['um', 'uh', 'like', 'you know', 'so', 'actually', 'basically', 'literally', 'right', 'okay'];
+        
+        document.getElementById('videoInput').addEventListener('change', function(e) {
+            videoFile = e.target.files[0];
+            if (videoFile) {
+                document.getElementById('filename').textContent = videoFile.name;
+                processVideo(videoFile);
+            }
+        });
+        
+        async function processVideo(file) {
+            document.getElementById('uploadView').style.display = 'none';
+            document.getElementById('processing').style.display = 'block';
+            
+            const videoURL = URL.createObjectURL(file);
+            
+            const videoElement = document.getElementById('videoOnly');
+            videoElement.src = videoURL;
+            
+            // Ensure video stays muted
+            videoElement.muted = true;
+            videoElement.volume = 0;
+            
+            videoElement.addEventListener('volumechange', function() {
+                if (!this.muted) this.muted = true;
+                if (this.volume !== 0) this.volume = 0;
+            });
+            
+            document.getElementById('audioOnly').src = videoURL;
+            
+            try {
+                const formData = new FormData();
+                formData.append('video', file);
+                
+                const response = await fetch(`${API_URL}/analyze`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Analysis failed');
+                }
+                
+                const data = await response.json();
+                assessmentData = data;
+                displayResults(data);
+                
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error processing video. Make sure your Python backend is running on port 5000.');
+                resetApp();
+            }
+        }
+        
+        function displayResults(data) {
+            // Set date
+            const today = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+            document.getElementById('analyzedDate').textContent = `Analyzed on ${today}`;
+
+            // Metrics
+            document.getElementById('speechRate').textContent = `${data.words_per_min} wpm`;
+            
+            const words = data.transcript.split(' ').length;
+            document.getElementById('fillerWords').textContent = data.filler_count;
+            
+            // Filler rate per minute (from backend)
+            const fillerRatePerMin = data.filler_rate_per_min || ((data.filler_count / (data.duration / 60)).toFixed(1));
+            document.getElementById('fillerRate').textContent = `${fillerRatePerMin} /min`;
+            
+            // Filler percentage
+            const fillerPercentage = ((data.filler_count / words) * 100).toFixed(1);
+            document.getElementById('fillerPercentage').textContent = `${fillerPercentage}%`;
+
+            // Audio assessment
+            document.getElementById('rateAssessment').textContent = data.assessment.pace;
+            const badge = getBadgeClass(data.assessment.pace);
+            document.getElementById('ratebadge').textContent = badge.text;
+            document.getElementById('ratebadge').className = 'assessment-badge ' + badge.class;
+
+            // Transcript
+            const highlightedTranscript = highlightFillerWords(data.transcript);
+            document.getElementById('transcript').innerHTML = highlightedTranscript;
+
+            // Word Cloud - use backend data if available, otherwise count locally
+            const fillerBreakdown = data.filler_breakdown || countFillerWords(data.transcript);
+            generateWordCloud(fillerBreakdown);
+            
+            document.getElementById('processing').style.display = 'none';
+            document.getElementById('results').style.display = 'block';
+        }
+
+        function generateWordCloud(fillerCounts) {
+            const cloudContainer = document.getElementById('wordCloud');
+            
+            // Filter out zero counts and sort by frequency
+            const fillers = Object.entries(fillerCounts)
+                .filter(([word, count]) => count > 0)
+                .sort((a, b) => b[1] - a[1]);
+            
+            if (fillers.length === 0) {
+                cloudContainer.innerHTML = '<div class="word-cloud-empty">No filler words detected! 🎉</div>';
+                return;
+            }
+            
+            // Generate word cloud HTML with sleek boxes
+            const cloudHTML = fillers.map(([word, count], index) => {
+                // Stagger animation delays
+                const delay = index * 0.05;
+                
+                return `<div class="cloud-word" 
+                            style="animation-delay: ${delay}s;"
+                            title="${word}: used ${count} time${count > 1 ? 's' : ''}">
+                            <span class="cloud-word-text">"${word}"</span>
+                            <span class="cloud-word-count">× ${count}</span>
+                        </div>`;
+            }).join('');
+            
+            cloudContainer.innerHTML = cloudHTML;
+        }
+
+        function switchTab(tab) {
+            currentTab = tab;
+            
+            // Update tab buttons
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            // Update tab content
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.getElementById(tab + 'Tab').classList.add('active');
+        }
+
+        function getBadgeClass(assessment) {
+            if (assessment.includes('Excellent')) {
+                return { text: 'Excellent', class: 'badge-excellent' };
+            } else if (assessment.includes('Good')) {
+                return { text: 'Good', class: 'badge-good' };
+            }
+            return { text: 'Needs Improvement', class: 'badge-needs-improvement' };
+        }
+
+        function highlightFillerWords(text) {
+            let highlighted = text;
+            fillerWords.forEach(word => {
+                const regex = new RegExp(`\\b${word}\\b`, 'gi');
+                highlighted = highlighted.replace(regex, `<span class="filler-word">${word}</span>`);
+            });
+            return highlighted;
+        }
+
+        function countFillerWords(text) {
+            const counts = {};
+            const textLower = text.toLowerCase();
+            
+            fillerWords.forEach(word => {
+                const regex = new RegExp(`\\b${word}\\b`, 'gi');
+                const matches = textLower.match(regex);
+                counts[word] = matches ? matches.length : 0;
+            });
+            
+            return counts;
+        }
+        
+        function resetApp() {
+            document.getElementById('uploadView').style.display = 'block';
+            document.getElementById('processing').style.display = 'none';
+            document.getElementById('results').style.display = 'none';
+            document.getElementById('filename').textContent = '';
+            document.getElementById('videoInput').value = '';
+            videoFile = null;
+            currentTab = 'audio';
+        }
+    </script>
+</body>
+</html>
