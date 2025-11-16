@@ -652,6 +652,7 @@ async function compressVideo(file) {
       
       // Create video element to get dimensions
       const video = document.createElement('video');
+      video.muted = true; // MUTE IT!
       video.src = URL.createObjectURL(videoBlob);
       
       await new Promise(res => {
@@ -694,6 +695,7 @@ async function compressVideo(file) {
       };
       
       mediaRecorder.start();
+      video.muted = true; // Make sure it stays muted
       video.play();
       
       // Draw frames
