@@ -7,7 +7,6 @@ import subprocess
 import re
 
 app = Flask(__name__, static_folder='static')
-app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # 500MB limit
 CORS(app)
 
 client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))

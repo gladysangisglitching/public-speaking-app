@@ -630,25 +630,99 @@ async function loadVideo(file) {
       filesize.textContent = `Compressed: ${formatFileSize(compressedSize)} (${savings}% smaller)`;
     }
     
-    // Store the original file URL for later playback
-    window.originalVideoURL = URL.createObjectURL(file);
+    // Set up local playback with the original file
+    const objectURL = URL.createObjectURL(file);
+    videoElement.src = objectURL;
+    videoElement.muted = true;
+    audioElement.src = objectURL;
     
     // Process the compressed file
     processVideo(processedFile);
   } catch (error) {
     alert(`Compression failed: ${error.message}. Uploading original file...`);
-    window.originalVideoURL = URL.createObjectURL(file);
+    const objectURL = URL.createObjectURL(file);
+    videoElement.src = objectURL;
+    videoElement.muted = true;
+    audioElement.src = objectURL;
     processVideo(file);
   }
 }
 
 async function compressVideo(file) {
-  progressText.textContent = 'Preparing video for upload...';
+  progressText.textContent = 'Compressing video (this may take a minute)...';
   
-  // For now, just return the original file
-  // Client-side compression is complex and can lose audio
-  // Better to let the backend handle it or rely on smaller uploads
-  return file;
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = async function(e) {
+      const videoBlob = new Blob([e.target.result], { type: file.type });
+      
+      // Create video element to get dimensions
+      const video = document.createElement('video');
+      video.src = URL.createObjectURL(videoBlob);
+      
+      await new Promise(res => {
+        video.onloadedmetadata = res;
+      });
+      
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      
+      // Reduce resolution to 720p max
+      const scale = Math.min(1, 1280 / video.videoWidth, 720 / video.videoHeight);
+      canvas.width = video.videoWidth * scale;
+      canvas.height = video.videoHeight * scale;
+      
+      // Use MediaRecorder to re-encode
+      const stream = canvas.captureStream(24); // 24fps
+      
+      // Add audio track from original video
+      const audioContext = new AudioContext();
+      const source = audioContext.createMediaElementSource(video);
+      const dest = audioContext.createMediaStreamDestination();
+      source.connect(dest);
+      source.connect(audioContext.destination);
+      
+      stream.addTrack(dest.stream.getAudioTracks()[0]);
+      
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: 'video/webm;codecs=vp8,opus',
+        videoBitsPerSecond: 1000000 // 1 Mbps
+      });
+      
+      const chunks = [];
+      mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
+      mediaRecorder.onstop = () => {
+        const compressedBlob = new Blob(chunks, { type: 'video/webm' });
+        const compressedFile = new File([compressedBlob], file.name.replace(/\.[^.]+$/, '.webm'), {
+          type: 'video/webm'
+        });
+        resolve(compressedFile);
+      };
+      
+      mediaRecorder.start();
+      video.play();
+      
+      // Draw frames
+      const drawFrame = () => {
+        if (video.ended || video.paused) {
+          mediaRecorder.stop();
+          return;
+        }
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        requestAnimationFrame(drawFrame);
+      };
+      
+      drawFrame();
+      
+      // Stop after video ends
+      video.onended = () => {
+        setTimeout(() => mediaRecorder.stop(), 100);
+      };
+    };
+    
+    reader.onerror = reject;
+    reader.readAsArrayBuffer(file);
+  });
 }
 
 async function processVideo(file) {
@@ -686,13 +760,6 @@ async function processVideo(file) {
 function displayResults(data) {
   processing.style.display = 'none';
   results.style.display = 'block';
-  
-  // NOW set up the media playback after processing is complete
-  if (window.originalVideoURL) {
-    videoElement.src = window.originalVideoURL;
-    videoElement.muted = true;
-    audioElement.src = window.originalVideoURL;
-  }
   
   // Populate metrics
   document.getElementById('speechRate').textContent = `${data.words_per_min} wpm`;
@@ -779,12 +846,6 @@ function resetApp() {
   filesize.textContent = '';
   videoElement.src = '';
   audioElement.src = '';
-  
-  // Clean up object URL
-  if (window.originalVideoURL) {
-    URL.revokeObjectURL(window.originalVideoURL);
-    window.originalVideoURL = null;
-  }
   
   // Reset to first tab
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
