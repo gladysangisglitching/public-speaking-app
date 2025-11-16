@@ -123,6 +123,30 @@
             100% { transform: rotate(360deg); }
         }
         
+        .progress-bar {
+            width: 100%;
+            max-width: 400px;
+            height: 8px;
+            background: #f0f0f0;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 20px auto;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #0071e3, #00a8ff);
+            border-radius: 4px;
+            transition: width 0.3s ease;
+            width: 0%;
+        }
+        
+        .progress-text {
+            color: #86868b;
+            margin-top: 10px;
+            font-size: 0.9em;
+        }
+        
         .results {
             display: none;
         }
@@ -357,12 +381,6 @@
             padding: 20px;
         }
 
-        .filler-summary {
-            color: #0071e3;
-            font-size: 0.95em;
-            margin-bottom: 20px;
-        }
-
         .transcript-box {
             background: #fafafa;
             padding: 24px;
@@ -404,6 +422,15 @@
             color: #0071e3;
             font-weight: 500;
         }
+
+        .error-message {
+            background: #fee;
+            color: #c33;
+            padding: 16px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border: 1px solid #fcc;
+        }
     </style>
 </head>
 <body>
@@ -419,7 +446,7 @@
                 <div style="font-size: 3em; margin-bottom: 20px;">📹</div>
                 <p style="margin-bottom: 20px; font-size: 1.1em; color: #86868b;">Upload your video (MP4, WebM, MOV)</p>
                 <p style="margin-bottom: 20px; font-size: 0.95em; color: #0071e3; font-weight: 600;">
-                    📹 Upload videos up to 3 minutes (we'll compress large files automatically)
+                    📹 Upload videos up to 5 minutes
                 </p>
                 <input type="file" id="videoInput" accept="video/*">
                 <button class="upload-btn" onclick="document.getElementById('videoInput').click()">
@@ -432,8 +459,11 @@
         <!-- Processing -->
         <div class="processing" id="processing">
             <div class="spinner"></div>
-            <p style="color: #1d1d1f; font-size: 1.1em;">Processing your video...</p>
-            <p style="color: #86868b; margin-top: 10px;">This may take 30-60 seconds</p>
+            <p style="color: #1d1d1f; font-size: 1.1em; margin-bottom: 8px;">Processing your video...</p>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <p class="progress-text" id="progressText">Uploading...</p>
         </div>
         
         <!-- Results View -->
@@ -441,18 +471,18 @@
             <div class="header">
                 <button class="back-btn" onclick="resetApp()">← Back</button>
                 <h1>Your Assessment</h1>
-                <p class="analyzed-date" id="analyzedDate">Analyzed on 10/26/2025</p>
+                <p class="analyzed-date" id="analyzedDate">Analyzed today</p>
             </div>
 
             <!-- Tabs -->
             <div class="tabs">
-                <button class="tab active" onclick="switchTab('audio')">
+                <button class="tab active" onclick="switchTab(event, 'audio')">
                     🔊 Tone & Rate of Speech
                 </button>
-                <button class="tab" onclick="switchTab('video')">
+                <button class="tab" onclick="switchTab(event, 'video')">
                     🎥 Body Language Analysis
                 </button>
-                <button class="tab" onclick="switchTab('transcript')">
+                <button class="tab" onclick="switchTab(event, 'transcript')">
                     📄 Transcript
                 </button>
             </div>
@@ -489,7 +519,7 @@
                     <p class="content-description">Watch your video without sound to focus on your gestures, posture, and non-verbal communication.</p>
                     
                     <div class="media-player">
-                        <video id="videoOnly" controls muted controlsList="nodownload noremoteplayback"></video>
+                        <video id="videoOnly" controls muted></video>
                     </div>
 
                     <div class="checklist">
@@ -553,7 +583,6 @@
         // Drag and drop functionality
         const dropZone = document.getElementById('dropZone');
         
-        // Prevent default drag behaviors
         ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
             dropZone.addEventListener(eventName, preventDefaults, false);
             document.body.addEventListener(eventName, preventDefaults, false);
@@ -564,7 +593,6 @@
             e.stopPropagation();
         }
         
-        // Highlight drop zone when dragging over it
         ['dragenter', 'dragover'].forEach(eventName => {
             dropZone.addEventListener(eventName, () => {
                 dropZone.classList.add('drag-over');
@@ -577,7 +605,6 @@
             }, false);
         });
         
-        // Handle dropped files
         dropZone.addEventListener('drop', function(e) {
             const dt = e.dataTransfer;
             const files = dt.files;
@@ -587,14 +614,12 @@
             }
         }, false);
         
-        // Click to upload
         dropZone.addEventListener('click', function(e) {
             if (e.target.tagName !== 'BUTTON') {
                 document.getElementById('videoInput').click();
             }
         });
         
-        // File input change
         document.getElementById('videoInput').addEventListener('change', function(e) {
             if (e.target.files.length > 0) {
                 handleFile(e.target.files[0]);
@@ -602,48 +627,34 @@
         });
         
         async function handleFile(file) {
-            // Check if it's a video file
             if (!file.type.startsWith('video/')) {
-                alert('Please upload a valid video file (MP4, WebM, or MOV).');
+                alert('Please upload a valid video file (MP4, WebM, MOV, or AVI).');
                 return;
             }
             
             videoFile = file;
             const fileSizeMB = file.size / (1024 * 1024);
             
-            // Get video duration first
-            const duration = await getVideoDuration(file);
-            const durationMinutes = duration / 60;
-            
-            // Check duration limit (5 minutes)
-            if (duration > 300) {
-                alert(`Video is too long (${durationMinutes.toFixed(1)} minutes). Please use a video under 5 minutes.`);
-                document.getElementById('filename').textContent = '';
-                return;
-            }
-            
-            // Show file info with compression notice if needed
-            if (fileSizeMB > 50) {
-                document.getElementById('filename').textContent = 
-                    `${file.name} (${fileSizeMB.toFixed(1)}MB) - Compressing before upload...`;
+            try {
+                const duration = await getVideoDuration(file);
+                const durationMinutes = duration / 60;
                 
-                // Compress the video on client side
-                try {
-                    file = await compressVideoClient(file);
-                    const compressedSizeMB = file.size / (1024 * 1024);
-                    document.getElementById('filename').textContent = 
-                        `${file.name} (compressed to ${compressedSizeMB.toFixed(1)}MB)`;
-                } catch (error) {
-                    alert('Failed to compress video. Please try a smaller file or reduce the quality before uploading.');
+                if (duration > 300) {
+                    alert(`Video is too long (${durationMinutes.toFixed(1)} minutes). Please use a video under 5 minutes.`);
                     document.getElementById('filename').textContent = '';
                     return;
                 }
-            } else {
+                
                 document.getElementById('filename').textContent = 
                     `${file.name} (${fileSizeMB.toFixed(1)}MB, ${durationMinutes.toFixed(1)} min)`;
+                
+                processVideo(file);
+                
+            } catch (error) {
+                console.error('Error checking video:', error);
+                alert('Error loading video. Please try another file.');
+                document.getElementById('filename').textContent = '';
             }
-            
-            processVideo(file);
         }
         
         function getVideoDuration(file) {
@@ -657,60 +668,9 @@
                 };
                 
                 video.onerror = function() {
-                    reject("Error loading video");
+                    reject(new Error("Error loading video"));
                 };
                 
-                video.src = URL.createObjectURL(file);
-            });
-        }
-        
-        async function compressVideoClient(file) {
-            return new Promise((resolve, reject) => {
-                const video = document.createElement('video');
-                const canvas = document.createElement('canvas');
-                const ctx = canvas.getContext('2d');
-                
-                video.onloadedmetadata = async function() {
-                    // Set canvas to lower resolution (720p max)
-                    const scale = Math.min(1, 1280 / video.videoWidth);
-                    canvas.width = video.videoWidth * scale;
-                    canvas.height = video.videoHeight * scale;
-                    
-                    // Create MediaRecorder with compression
-                    const stream = canvas.captureStream(25); // 25 fps
-                    const mediaRecorder = new MediaRecorder(stream, {
-                        mimeType: 'video/webm;codecs=vp8',
-                        videoBitsPerSecond: 1000000 // 1 Mbps
-                    });
-                    
-                    const chunks = [];
-                    mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
-                    mediaRecorder.onstop = () => {
-                        const blob = new Blob(chunks, { type: 'video/webm' });
-                        const compressedFile = new File([blob], file.name.replace(/\.\w+$/, '.webm'), {
-                            type: 'video/webm'
-                        });
-                        resolve(compressedFile);
-                    };
-                    
-                    mediaRecorder.start();
-                    video.play();
-                    
-                    // Draw frames to canvas
-                    const drawFrame = () => {
-                        if (!video.paused && !video.ended) {
-                            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                            requestAnimationFrame(drawFrame);
-                        } else {
-                            mediaRecorder.stop();
-                            video.src = '';
-                        }
-                    };
-                    
-                    drawFrame();
-                };
-                
-                video.onerror = () => reject(new Error('Video compression failed'));
                 video.src = URL.createObjectURL(file);
             });
         }
@@ -724,14 +684,10 @@
             const videoElement = document.getElementById('videoOnly');
             videoElement.src = videoURL;
             videoElement.muted = true;
-            videoElement.volume = 0;
-            
-            videoElement.addEventListener('volumechange', function() {
-                if (!this.muted) this.muted = true;
-                if (this.volume !== 0) this.volume = 0;
-            });
             
             document.getElementById('audioOnly').src = videoURL;
+            
+            updateProgress(10, 'Uploading video...');
             
             try {
                 const formData = new FormData();
@@ -739,10 +695,14 @@
                 
                 const apiUrl = API_URL + '/analyze';
                 
+                updateProgress(30, 'Processing video...');
+                
                 const response = await fetch(apiUrl, {
                     method: 'POST',
                     body: formData
                 });
+                
+                updateProgress(60, 'Transcribing audio...');
                 
                 if (!response.ok) {
                     const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
@@ -750,14 +710,25 @@
                 }
                 
                 const data = await response.json();
+                updateProgress(90, 'Generating results...');
+                
                 assessmentData = data;
-                displayResults(data);
+                
+                setTimeout(() => {
+                    updateProgress(100, 'Complete!');
+                    displayResults(data);
+                }, 500);
                 
             } catch (error) {
                 console.error('Error:', error);
                 alert(`Error: ${error.message}`);
                 resetApp();
             }
+        }
+        
+        function updateProgress(percent, text) {
+            document.getElementById('progressFill').style.width = percent + '%';
+            document.getElementById('progressText').textContent = text;
         }
         
         function displayResults(data) {
@@ -816,7 +787,7 @@
             cloudContainer.innerHTML = cloudHTML;
         }
 
-        function switchTab(tab) {
+        function switchTab(event, tab) {
             currentTab = tab;
             
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -839,7 +810,7 @@
             let highlighted = text;
             fillerWords.forEach(word => {
                 const regex = new RegExp(`\\b${word}\\b`, 'gi');
-                highlighted = highlighted.replace(regex, `<span class="filler-word">${word}</span>`);
+                highlighted = highlighted.replace(regex, match => `<span class="filler-word">${match}</span>`);
             });
             return highlighted;
         }
@@ -863,8 +834,13 @@
             document.getElementById('results').style.display = 'none';
             document.getElementById('filename').textContent = '';
             document.getElementById('videoInput').value = '';
+            document.getElementById('progressFill').style.width = '0%';
             videoFile = null;
             currentTab = 'audio';
+            
+            // Clear video/audio sources
+            document.getElementById('videoOnly').src = '';
+            document.getElementById('audioOnly').src = '';
         }
     </script>
 </body>
