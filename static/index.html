@@ -630,20 +630,14 @@ async function loadVideo(file) {
       filesize.textContent = `Compressed: ${formatFileSize(compressedSize)} (${savings}% smaller)`;
     }
     
-    // Set up local playback with the original file
-    const objectURL = URL.createObjectURL(file);
-    videoElement.src = objectURL;
-    videoElement.muted = true;
-    audioElement.src = objectURL;
+    // Store the original file URL for later playback
+    window.originalVideoURL = URL.createObjectURL(file);
     
     // Process the compressed file
     processVideo(processedFile);
   } catch (error) {
     alert(`Compression failed: ${error.message}. Uploading original file...`);
-    const objectURL = URL.createObjectURL(file);
-    videoElement.src = objectURL;
-    videoElement.muted = true;
-    audioElement.src = objectURL;
+    window.originalVideoURL = URL.createObjectURL(file);
     processVideo(file);
   }
 }
@@ -761,6 +755,13 @@ function displayResults(data) {
   processing.style.display = 'none';
   results.style.display = 'block';
   
+  // NOW set up the media playback after processing is complete
+  if (window.originalVideoURL) {
+    videoElement.src = window.originalVideoURL;
+    videoElement.muted = true;
+    audioElement.src = window.originalVideoURL;
+  }
+  
   // Populate metrics
   document.getElementById('speechRate').textContent = `${data.words_per_min} wpm`;
   document.getElementById('duration').textContent = `${Math.floor(data.duration / 60)}:${String(Math.floor(data.duration % 60)).padStart(2, '0')}`;
@@ -846,6 +847,12 @@ function resetApp() {
   filesize.textContent = '';
   videoElement.src = '';
   audioElement.src = '';
+  
+  // Clean up object URL
+  if (window.originalVideoURL) {
+    URL.revokeObjectURL(window.originalVideoURL);
+    window.originalVideoURL = null;
+  }
   
   // Reset to first tab
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
