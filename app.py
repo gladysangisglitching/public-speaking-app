@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, send_from_directory
+# Create temporary files with proper extensionfrom flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import os
 from openai import OpenAI
