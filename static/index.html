@@ -108,6 +108,12 @@ input[type="file"] {
   font-weight: 500;
 }
 
+.file-size {
+  margin-top: 8px;
+  color: #86868b;
+  font-size: 0.9em;
+}
+
 .processing {
   text-align: center;
   padding: 60px 30px;
@@ -441,6 +447,7 @@ video {
       <input type="file" id="videoInput" accept="video/*">
       <button class="upload-btn" onclick="document.getElementById('videoInput').click()">Choose Video</button>
       <div class="filename" id="filename"></div>
+      <div class="file-size" id="filesize"></div>
     </div>
   </div>
   
@@ -543,8 +550,8 @@ video {
   </div>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ffmpeg/0.11.6/ffmpeg.min.js"></script>
 <script>
-// IMPORTANT: Update this with your Render backend URL
 const API_URL = '';
 
 // DOM Elements
@@ -557,6 +564,7 @@ const results = document.getElementById('results');
 const progressFill = document.getElementById('progressFill');
 const progressText = document.getElementById('progressText');
 const filename = document.getElementById('filename');
+const filesize = document.getElementById('filesize');
 const dropZone = document.getElementById('dropZone');
 
 // Event Listeners
@@ -593,30 +601,139 @@ function handleDrop(e) {
   }
 }
 
-function loadVideo(file) {
-  filename.textContent = file.name;
-  
-  // Set up local playback
-  const objectURL = URL.createObjectURL(file);
-  videoElement.src = objectURL;
-  videoElement.muted = true;
-  audioElement.src = objectURL;
-  
-  // Start processing
-  processVideo(file);
+function formatFileSize(bytes) {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
 }
 
-async function processVideo(file) {
+async function loadVideo(file) {
+  const originalSize = file.size;
+  filename.textContent = file.name;
+  filesize.textContent = `Original size: ${formatFileSize(originalSize)}`;
+  
+  // Show processing immediately
   uploadView.style.display = 'none';
   processing.style.display = 'block';
   progressFill.style.width = '10%';
-  progressText.textContent = 'Uploading video...';
+  progressText.textContent = 'Compressing video...';
+  
+  try {
+    // Compress video if it's larger than 50MB
+    let processedFile = file;
+    if (originalSize > 50 * 1024 * 1024) {
+      processedFile = await compressVideo(file);
+      const compressedSize = processedFile.size;
+      const savings = ((1 - compressedSize / originalSize) * 100).toFixed(0);
+      filesize.textContent = `Compressed: ${formatFileSize(compressedSize)} (${savings}% smaller)`;
+    }
+    
+    // Set up local playback with the original file
+    const objectURL = URL.createObjectURL(file);
+    videoElement.src = objectURL;
+    videoElement.muted = true;
+    audioElement.src = objectURL;
+    
+    // Process the compressed file
+    processVideo(processedFile);
+  } catch (error) {
+    alert(`Compression failed: ${error.message}. Uploading original file...`);
+    const objectURL = URL.createObjectURL(file);
+    videoElement.src = objectURL;
+    videoElement.muted = true;
+    audioElement.src = objectURL;
+    processVideo(file);
+  }
+}
+
+async function compressVideo(file) {
+  progressText.textContent = 'Compressing video (this may take a minute)...';
+  
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = async function(e) {
+      const videoBlob = new Blob([e.target.result], { type: file.type });
+      
+      // Create video element to get dimensions
+      const video = document.createElement('video');
+      video.src = URL.createObjectURL(videoBlob);
+      
+      await new Promise(res => {
+        video.onloadedmetadata = res;
+      });
+      
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      
+      // Reduce resolution to 720p max
+      const scale = Math.min(1, 1280 / video.videoWidth, 720 / video.videoHeight);
+      canvas.width = video.videoWidth * scale;
+      canvas.height = video.videoHeight * scale;
+      
+      // Use MediaRecorder to re-encode
+      const stream = canvas.captureStream(24); // 24fps
+      
+      // Add audio track from original video
+      const audioContext = new AudioContext();
+      const source = audioContext.createMediaElementSource(video);
+      const dest = audioContext.createMediaStreamDestination();
+      source.connect(dest);
+      source.connect(audioContext.destination);
+      
+      stream.addTrack(dest.stream.getAudioTracks()[0]);
+      
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: 'video/webm;codecs=vp8,opus',
+        videoBitsPerSecond: 1000000 // 1 Mbps
+      });
+      
+      const chunks = [];
+      mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
+      mediaRecorder.onstop = () => {
+        const compressedBlob = new Blob(chunks, { type: 'video/webm' });
+        const compressedFile = new File([compressedBlob], file.name.replace(/\.[^.]+$/, '.webm'), {
+          type: 'video/webm'
+        });
+        resolve(compressedFile);
+      };
+      
+      mediaRecorder.start();
+      video.play();
+      
+      // Draw frames
+      const drawFrame = () => {
+        if (video.ended || video.paused) {
+          mediaRecorder.stop();
+          return;
+        }
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        requestAnimationFrame(drawFrame);
+      };
+      
+      drawFrame();
+      
+      // Stop after video ends
+      video.onended = () => {
+        setTimeout(() => mediaRecorder.stop(), 100);
+      };
+    };
+    
+    reader.onerror = reject;
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+async function processVideo(file) {
+  progressFill.style.width = '30%';
+  progressText.textContent = 'Uploading to server...';
 
   const formData = new FormData();
   formData.append('video', file);
 
   try {
-    progressFill.style.width = '30%';
+    progressFill.style.width = '50%';
     progressText.textContent = 'Transcribing speech...';
     
     const response = await fetch(`${API_URL}/analyze`, {
@@ -635,7 +752,7 @@ async function processVideo(file) {
     
     setTimeout(() => displayResults(data), 500);
   } catch (err) {
-    alert(`Error: ${err.message}\n\nMake sure you've updated the API_URL in the code with your Render backend URL.`);
+    alert(`Error: ${err.message}`);
     resetApp();
   }
 }
@@ -726,6 +843,7 @@ function resetApp() {
   
   videoInput.value = '';
   filename.textContent = '';
+  filesize.textContent = '';
   videoElement.src = '';
   audioElement.src = '';
   
