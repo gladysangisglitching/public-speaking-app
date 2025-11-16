@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Public Speaking Assessment</title>
 <style>
-/* Reset & Base */
 * {
   margin: 0;
   padding: 0;
@@ -19,7 +18,6 @@ body {
   padding: 20px;
 }
 
-/* Container */
 .container {
   max-width: 1200px;
   margin: 0 auto;
@@ -29,7 +27,6 @@ body {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-/* Header */
 .header {
   margin-bottom: 30px;
 }
@@ -63,7 +60,6 @@ h1 {
   font-size: 0.95em;
 }
 
-/* Upload Section */
 .upload-section {
   border: 2px dashed #d2d2d7;
   border-radius: 12px;
@@ -112,7 +108,6 @@ input[type="file"] {
   font-weight: 500;
 }
 
-/* Processing */
 .processing {
   text-align: center;
   padding: 60px 30px;
@@ -158,12 +153,10 @@ input[type="file"] {
   font-size: 0.9em;
 }
 
-/* Results */
 .results {
   display: none;
 }
 
-/* Metrics Grid */
 .metrics-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -199,7 +192,6 @@ input[type="file"] {
   color: #1d1d1f;
 }
 
-/* Tabs */
 .tabs {
   display: flex;
   gap: 8px;
@@ -249,7 +241,6 @@ input[type="file"] {
   to { opacity: 1; }
 }
 
-/* Content Card */
 .content-card {
   background: white;
   border: 1px solid #e5e5e7;
@@ -271,7 +262,6 @@ input[type="file"] {
   line-height: 1.5;
 }
 
-/* Media Player */
 .media-player {
   border-radius: 12px;
   overflow: hidden;
@@ -294,7 +284,6 @@ video {
   border-radius: 12px;
 }
 
-/* Assessment Badge */
 .assessment-badge {
   display: inline-block;
   padding: 8px 16px;
@@ -314,7 +303,6 @@ video {
   color: #856404;
 }
 
-/* Checklist */
 .checklist {
   margin-top: 20px;
 }
@@ -347,7 +335,6 @@ video {
   margin-right: 8px;
 }
 
-/* Word Cloud */
 .word-cloud-container {
   display: flex;
   flex-wrap: wrap;
@@ -370,7 +357,6 @@ video {
   font-weight: 500;
   transition: all 0.2s ease;
   cursor: default;
-  animation: fadeIn 0.4s ease-out backwards;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   display: inline-flex;
   align-items: center;
@@ -400,7 +386,6 @@ video {
   padding: 20px;
 }
 
-/* Transcript */
 .transcript-box {
   background: #fafafa;
   padding: 24px;
@@ -414,9 +399,9 @@ video {
   background: #fff3cd;
   padding: 2px 4px;
   border-radius: 3px;
+  font-weight: 600;
 }
 
-/* Footer Button */
 .footer-btn {
   background: #0071e3;
   color: white;
@@ -436,16 +421,6 @@ video {
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(0, 113, 227, 0.3);
 }
-
-/* Error Message */
-.error-message {
-  background: #fee;
-  color: #c33;
-  padding: 16px;
-  border-radius: 8px;
-  margin: 20px 0;
-  border: 1px solid #fcc;
-}
 </style>
 </head>
 <body>
@@ -459,9 +434,9 @@ video {
     
     <div class="upload-section" id="dropZone">
       <div style="font-size:3em; margin-bottom:20px;">📹</div>
-      <p style="margin-bottom:20px; font-size:1.1em; color:#86868b;">Upload your video (MP4, WebM, MOV)</p>
+      <p style="margin-bottom:20px; font-size:1.1em; color:#86868b;">Drag & drop your video or click to browse</p>
       <p style="margin-bottom:20px; font-size:0.95em; color:#0071e3; font-weight:600;">
-        📹 Upload videos up to 5 minutes
+        Supports MP4, WebM, MOV
       </p>
       <input type="file" id="videoInput" accept="video/*">
       <button class="upload-btn" onclick="document.getElementById('videoInput').click()">Choose Video</button>
@@ -484,13 +459,13 @@ video {
     <div class="header">
       <button class="back-btn" onclick="resetApp()">← Back</button>
       <h1>Your Assessment</h1>
-      <p class="analyzed-date" id="analyzedDate">Analyzed today</p>
+      <p class="analyzed-date">Analyzed just now</p>
     </div>
 
     <!-- Tabs -->
     <div class="tabs">
-      <button class="tab active" onclick="switchTab(event, 'audio')">🔊 Tone & Rate of Speech</button>
-      <button class="tab" onclick="switchTab(event, 'video')">🎥 Body Language Analysis</button>
+      <button class="tab active" onclick="switchTab(event, 'audio')">🔊 Audio Analysis</button>
+      <button class="tab" onclick="switchTab(event, 'video')">🎥 Body Language</button>
       <button class="tab" onclick="switchTab(event, 'transcript')">📄 Transcript</button>
     </div>
 
@@ -498,7 +473,7 @@ video {
     <div class="tab-content active" id="audioTab">
       <div class="content-card">
         <h2 class="content-title">Audio Analysis</h2>
-        <p class="content-description">Listen to your speech without visual distractions. Focus on your tone, pace, and vocal delivery.</p>
+        <p class="content-description">Listen to your speech and review your vocal delivery.</p>
         <div class="media-player">
           <audio id="audioOnly" controls></audio>
         </div>
@@ -506,6 +481,10 @@ video {
           <div class="metric-card">
             <div class="metric-icon">📊 Speech Rate</div>
             <div class="metric-value" id="speechRate">-- wpm</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-icon">⏱️ Duration</div>
+            <div class="metric-value" id="duration">--</div>
           </div>
         </div>
         <div style="margin-top:24px;">
@@ -520,7 +499,7 @@ video {
     <div class="tab-content" id="videoTab">
       <div class="content-card">
         <h2 class="content-title">Body Language Review</h2>
-        <p class="content-description">Watch your video without sound to focus on your gestures, posture, and non-verbal communication.</p>
+        <p class="content-description">Watch your video without sound to focus on gestures and body language.</p>
         <div class="media-player">
           <video id="videoOnly" controls muted></video>
         </div>
@@ -551,7 +530,7 @@ video {
             <div class="metric-value" id="fillerRate">-- /min</div>
           </div>
         </div>
-        <h3 style="font-size:1.2em; margin-bottom:12px; color:#1d1d1f;">Word Cloud</h3>
+        <h3 style="font-size:1.2em; margin-bottom:12px; color:#1d1d1f;">Most Common Filler Words</h3>
         <div class="word-cloud-container" id="wordCloud">
           <div class="word-cloud-empty">No filler words detected! 🎉</div>
         </div>
@@ -565,9 +544,8 @@ video {
 </div>
 
 <script>
-// Configuration
-const API_URL = window.location.origin;
-let videoFile = null;
+// IMPORTANT: Update this with your Render backend URL
+const API_URL = 'https://YOUR-APP-NAME.onrender.com';
 
 // DOM Elements
 const videoElement = document.getElementById('videoOnly');
@@ -579,17 +557,14 @@ const results = document.getElementById('results');
 const progressFill = document.getElementById('progressFill');
 const progressText = document.getElementById('progressText');
 const filename = document.getElementById('filename');
+const dropZone = document.getElementById('dropZone');
 
 // Event Listeners
 videoInput.addEventListener('change', handleFileSelect);
-
-// Drag and drop
-const dropZone = document.getElementById('dropZone');
 dropZone.addEventListener('dragover', handleDragOver);
 dropZone.addEventListener('dragleave', handleDragLeave);
 dropZone.addEventListener('drop', handleDrop);
 
-// Functions
 function handleFileSelect(e) {
   if (!e.target.files.length) return;
   loadVideo(e.target.files[0]);
@@ -619,7 +594,6 @@ function handleDrop(e) {
 }
 
 function loadVideo(file) {
-  videoFile = file;
   filename.textContent = file.name;
   
   // Set up local playback
@@ -633,7 +607,6 @@ function loadVideo(file) {
 }
 
 async function processVideo(file) {
-  // Show processing view
   uploadView.style.display = 'none';
   processing.style.display = 'block';
   progressFill.style.width = '10%';
@@ -643,6 +616,9 @@ async function processVideo(file) {
   formData.append('video', file);
 
   try {
+    progressFill.style.width = '30%';
+    progressText.textContent = 'Transcribing speech...';
+    
     const response = await fetch(`${API_URL}/analyze`, {
       method: 'POST',
       body: formData
@@ -659,25 +635,25 @@ async function processVideo(file) {
     
     setTimeout(() => displayResults(data), 500);
   } catch (err) {
-    alert(`Error: ${err.message}`);
+    alert(`Error: ${err.message}\n\nMake sure you've updated the API_URL in the code with your Render backend URL.`);
     resetApp();
   }
 }
 
 function displayResults(data) {
-  // Hide processing, show results
   processing.style.display = 'none';
   results.style.display = 'block';
   
   // Populate metrics
   document.getElementById('speechRate').textContent = `${data.words_per_min} wpm`;
+  document.getElementById('duration').textContent = `${Math.floor(data.duration / 60)}:${String(Math.floor(data.duration % 60)).padStart(2, '0')}`;
   document.getElementById('fillerWords').textContent = data.filler_count;
   document.getElementById('fillerRate').textContent = `${data.filler_rate_per_min} /min`;
   
   // Display transcript with highlighted filler words
   document.getElementById('transcript').innerHTML = highlightFillerWords(data.transcript);
   
-  // Display word cloud if available
+  // Display word cloud
   if (data.filler_words && Object.keys(data.filler_words).length > 0) {
     displayWordCloud(data.filler_words);
   }
@@ -703,14 +679,14 @@ function displayResults(data) {
 function highlightFillerWords(text) {
   const fillerWords = [
     'um', 'uh', 'like', 'you know', 'so', 
-    'actually', 'basically', 'literally', 'right', 'okay'
+    'actually', 'basically', 'literally', 'right', 'okay', 'well', 'i mean'
   ];
   
   let highlighted = text;
   
   fillerWords.forEach(word => {
     const regex = new RegExp(`\\b${word}\\b`, 'gi');
-    highlighted = highlighted.replace(regex, `<span class="filler-word">${word}</span>`);
+    highlighted = highlighted.replace(regex, match => `<span class="filler-word">${match}</span>`);
   });
   
   return highlighted;
@@ -722,7 +698,7 @@ function displayWordCloud(fillerWords) {
   
   const sortedWords = Object.entries(fillerWords)
     .sort((a, b) => b[1] - a[1])
-    .slice(0, 15);
+    .slice(0, 10);
   
   sortedWords.forEach(([word, count]) => {
     const wordEl = document.createElement('div');
@@ -736,14 +712,10 @@ function displayWordCloud(fillerWords) {
 }
 
 function switchTab(e, tabName) {
-  // Remove active class from all tabs
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   e.target.classList.add('active');
   
-  // Hide all tab contents
   document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-  
-  // Show selected tab content
   document.getElementById(tabName + 'Tab').classList.add('active');
 }
 
@@ -756,7 +728,6 @@ function resetApp() {
   filename.textContent = '';
   videoElement.src = '';
   audioElement.src = '';
-  videoFile = null;
   
   // Reset to first tab
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));

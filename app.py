@@ -12,9 +12,21 @@ CORS(app)
 client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
 
 FILLER_WORDS = ['um', 'uh', 'like', 'you know', 'so', 'actually', 'basically',
-                'literally', 'right', 'okay']
+                'literally', 'right', 'okay', 'well', 'i mean']
 
-# Utility functions
+def get_video_duration(video_path):
+    """Get video duration using ffprobe."""
+    cmd = [
+        'ffprobe', '-v', 'error',
+        '-show_entries', 'format=duration',
+        '-of', 'default=noprint_wrappers=1:nokey=1',
+        video_path
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise Exception(f"Could not read video duration")
+    return float(result.stdout.strip())
+
 def extract_audio_ffmpeg(video_path, audio_path):
     """Extract audio using ffmpeg."""
     cmd = [
@@ -25,21 +37,7 @@ def extract_audio_ffmpeg(video_path, audio_path):
     ]
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
-        raise Exception(f"FFmpeg error: {result.stderr}")
-    return os.path.getsize(audio_path)
-
-def get_video_duration(video_path):
-    """Get video duration in seconds using ffprobe."""
-    cmd = [
-        'ffprobe', '-v', 'error',
-        '-show_entries', 'format=duration',
-        '-of', 'default=noprint_wrappers=1:nokey=1',
-        video_path
-    ]
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    if result.returncode != 0:
-        raise Exception(f"FFprobe error: {result.stderr}")
-    return float(result.stdout.strip())
+        raise Exception(f"Could not extract audio from video")
 
 def transcribe_audio(audio_path):
     """Transcribe audio using OpenAI Whisper."""
@@ -50,15 +48,17 @@ def transcribe_audio(audio_path):
             response_format="text",
             language="en",
             temperature=0,
-            prompt="This is a public speaking practice video. Include filler words."
+            prompt="This is a public speaking practice video. Include all filler words like um, uh, like."
         )
-    return transcript  # This is already a string
+    return transcript
 
 def count_filler_words(text):
+    """Count filler words in transcript."""
     text_lower = text.lower()
     words = re.findall(r'\b\w+\b', text_lower)
     filler_counts = {}
     total_count = 0
+    
     for filler in FILLER_WORDS:
         if ' ' in filler:
             count = text_lower.count(filler)
@@ -67,9 +67,11 @@ def count_filler_words(text):
         if count > 0:
             filler_counts[filler] = count
             total_count += count
+    
     return total_count, filler_counts
 
 def assess_pace(wpm):
+    """Assess speaking pace."""
     if 140 <= wpm <= 160:
         return "Excellent pace! You're speaking at an ideal rate."
     elif 120 <= wpm < 140:
@@ -81,7 +83,6 @@ def assess_pace(wpm):
     else:
         return "Too fast. Slow down for clarity."
 
-# Routes
 @app.route('/analyze', methods=['POST'])
 def analyze_video():
     video_path = None
@@ -94,40 +95,41 @@ def analyze_video():
         video_file = request.files['video']
         file_ext = os.path.splitext(video_file.filename)[1].lower() or '.mp4'
 
-        # Save uploaded video temporarily
+        # Save video temporarily
         with tempfile.NamedTemporaryFile(delete=False, suffix=file_ext) as tmp_video:
             video_file.save(tmp_video.name)
             video_path = tmp_video.name
 
-        # Get actual video duration
+        # Get video duration
         duration_seconds = get_video_duration(video_path)
 
-        # Extract audio temporarily
+        # Extract audio
         audio_path = video_path.replace(file_ext, '.mp3')
         extract_audio_ffmpeg(video_path, audio_path)
 
-        # Transcribe audio (returns string directly)
+        # Transcribe audio
         transcript = transcribe_audio(audio_path)
 
-        # Compute metrics
+        # Analyze transcript
         word_count = len(transcript.split())
-        words_per_min = int((word_count / duration_seconds) * 60)
+        words_per_min = int((word_count / duration_seconds) * 60) if duration_seconds > 0 else 0
         filler_count, filler_breakdown = count_filler_words(transcript)
-        filler_rate_per_min = round(filler_count / (duration_seconds / 60), 2)
+        filler_rate_per_min = round(filler_count / (duration_seconds / 60), 2) if duration_seconds > 0 else 0
         pace_assessment = assess_pace(words_per_min)
 
         return jsonify({
             'transcript': transcript,
-            'duration': duration_seconds,
+            'duration': round(duration_seconds, 2),
             'word_count': word_count,
             'words_per_min': words_per_min,
             'filler_count': filler_count,
             'filler_rate_per_min': filler_rate_per_min,
-            'filler_words': filler_breakdown,  # Changed from filler_breakdown
+            'filler_words': filler_breakdown,
             'assessment': {'pace': pace_assessment}
         })
 
     except Exception as e:
+        print(f"Error: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
     finally:
@@ -144,6 +146,10 @@ def analyze_video():
 def health():
     return jsonify({'status': 'ok'})
 
+@app.route('/', methods=['GET'])
+def index():
+    return jsonify({'message': 'Public Speaking Analyzer API'})
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, threaded=True)
+    app.run(host='0.0.0.0', port=port)
