@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import os
 from openai import OpenAI
@@ -6,7 +6,7 @@ import tempfile
 import subprocess
 import re
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='static')
 CORS(app)
 
 client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
@@ -83,6 +83,11 @@ def assess_pace(wpm):
     else:
         return "Too fast. Slow down for clarity."
 
+# Serve the frontend HTML
+@app.route('/')
+def index():
+    return send_from_directory('static', 'index.html')
+
 @app.route('/analyze', methods=['POST'])
 def analyze_video():
     video_path = None
@@ -145,10 +150,6 @@ def analyze_video():
 @app.route('/health', methods=['GET'])
 def health():
     return jsonify({'status': 'ok'})
-
-@app.route('/', methods=['GET'])
-def index():
-    return jsonify({'message': 'Public Speaking Analyzer API'})
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
