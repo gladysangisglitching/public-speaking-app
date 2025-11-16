@@ -68,11 +68,18 @@
             margin-bottom: 30px;
             background: #fafafa;
             transition: all 0.3s;
+            cursor: pointer;
         }
         
         .upload-section:hover {
             border-color: #0071e3;
             background: #f5f8ff;
+        }
+
+        .upload-section.drag-over {
+            border-color: #0071e3;
+            background: #e6f2ff;
+            transform: scale(1.02);
         }
         
         input[type="file"] {
@@ -405,12 +412,15 @@
         <div id="uploadView">
             <div class="header">
                 <h1>Master Your Voice 📣</h1>
-                <p class="analyzed-date">Upload a 1-minute video to analyze your speaking skills</p>
+                <p class="analyzed-date">Upload a video to analyze your speaking skills</p>
             </div>
             
-            <div class="upload-section">
+            <div class="upload-section" id="dropZone">
                 <div style="font-size: 3em; margin-bottom: 20px;">📹</div>
                 <p style="margin-bottom: 20px; font-size: 1.1em; color: #86868b;">Upload your video (MP4, WebM, MOV)</p>
+                <p style="margin-bottom: 20px; font-size: 0.95em; color: #0071e3; font-weight: 600;">
+                    📹 Upload videos up to 3 minutes (we'll compress large files automatically)
+                </p>
                 <input type="file" id="videoInput" accept="video/*">
                 <button class="upload-btn" onclick="document.getElementById('videoInput').click()">
                     Choose Video
@@ -534,19 +544,87 @@
 
     <script>
         const API_URL = window.location.origin;
-    
+        
         let videoFile = null;
         let assessmentData = null;
         let currentTab = 'audio';
         const fillerWords = ['um', 'uh', 'like', 'you know', 'so', 'actually', 'basically', 'literally', 'right', 'okay'];
         
-        document.getElementById('videoInput').addEventListener('change', function(e) {
-            videoFile = e.target.files[0];
-            if (videoFile) {
-                document.getElementById('filename').textContent = videoFile.name;
-                processVideo(videoFile);
+        // Drag and drop functionality
+        const dropZone = document.getElementById('dropZone');
+        
+        // Prevent default drag behaviors
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, preventDefaults, false);
+            document.body.addEventListener(eventName, preventDefaults, false);
+        });
+        
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        
+        // Highlight drop zone when dragging over it
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => {
+                dropZone.classList.add('drag-over');
+            }, false);
+        });
+        
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => {
+                dropZone.classList.remove('drag-over');
+            }, false);
+        });
+        
+        // Handle dropped files
+        dropZone.addEventListener('drop', function(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        }, false);
+        
+        // Click to upload
+        dropZone.addEventListener('click', function(e) {
+            if (e.target.tagName !== 'BUTTON') {
+                document.getElementById('videoInput').click();
             }
         });
+        
+        // File input change
+        document.getElementById('videoInput').addEventListener('change', function(e) {
+            if (e.target.files.length > 0) {
+                handleFile(e.target.files[0]);
+            }
+        });
+        
+        async function handleFile(file) {
+            // Check if it's a video file
+            if (!file.type.startsWith('video/')) {
+                alert('Please upload a valid video file (MP4, WebM, or MOV).');
+                return;
+            }
+            
+            videoFile = file;
+            document.getElementById('filename').textContent = file.name;
+            
+            // Check file size
+            const fileSizeMB = file.size / (1024 * 1024);
+            if (fileSizeMB > 50) {
+                alert(`Video is too large (${fileSizeMB.toFixed(1)}MB). Please use a video under 50MB.`);
+                document.getElementById('filename').textContent = '';
+                return;
+            }
+            
+            // Show file info
+            document.getElementById('filename').textContent = 
+                `${file.name} (${fileSizeMB.toFixed(1)}MB)`;
+            
+            processVideo(file);
+        }
         
         async function processVideo(file) {
             document.getElementById('uploadView').style.display = 'none';
@@ -556,8 +634,6 @@
             
             const videoElement = document.getElementById('videoOnly');
             videoElement.src = videoURL;
-            
-            // Ensure video stays muted
             videoElement.muted = true;
             videoElement.volume = 0;
             
@@ -572,13 +648,16 @@
                 const formData = new FormData();
                 formData.append('video', file);
                 
-                const response = await fetch(`${API_URL}/analyze`, {
+                const apiUrl = API_URL + '/analyze';
+                
+                const response = await fetch(apiUrl, {
                     method: 'POST',
                     body: formData
                 });
                 
                 if (!response.ok) {
-                    throw new Error('Analysis failed');
+                    const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+                    throw new Error(errorData.error || `Server error: ${response.status}`);
                 }
                 
                 const data = await response.json();
@@ -587,41 +666,34 @@
                 
             } catch (error) {
                 console.error('Error:', error);
-                alert('Error processing video. Make sure your Python backend is running on port 5000.');
+                alert(`Error: ${error.message}`);
                 resetApp();
             }
         }
         
         function displayResults(data) {
-            // Set date
             const today = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
             document.getElementById('analyzedDate').textContent = `Analyzed on ${today}`;
 
-            // Metrics
             document.getElementById('speechRate').textContent = `${data.words_per_min} wpm`;
             
             const words = data.transcript.split(' ').length;
             document.getElementById('fillerWords').textContent = data.filler_count;
             
-            // Filler rate per minute (from backend)
             const fillerRatePerMin = data.filler_rate_per_min || ((data.filler_count / (data.duration / 60)).toFixed(1));
             document.getElementById('fillerRate').textContent = `${fillerRatePerMin} /min`;
             
-            // Filler percentage
             const fillerPercentage = ((data.filler_count / words) * 100).toFixed(1);
             document.getElementById('fillerPercentage').textContent = `${fillerPercentage}%`;
 
-            // Audio assessment
             document.getElementById('rateAssessment').textContent = data.assessment.pace;
             const badge = getBadgeClass(data.assessment.pace);
             document.getElementById('ratebadge').textContent = badge.text;
             document.getElementById('ratebadge').className = 'assessment-badge ' + badge.class;
 
-            // Transcript
             const highlightedTranscript = highlightFillerWords(data.transcript);
             document.getElementById('transcript').innerHTML = highlightedTranscript;
 
-            // Word Cloud - use backend data if available, otherwise count locally
             const fillerBreakdown = data.filler_breakdown || countFillerWords(data.transcript);
             generateWordCloud(fillerBreakdown);
             
@@ -632,7 +704,6 @@
         function generateWordCloud(fillerCounts) {
             const cloudContainer = document.getElementById('wordCloud');
             
-            // Filter out zero counts and sort by frequency
             const fillers = Object.entries(fillerCounts)
                 .filter(([word, count]) => count > 0)
                 .sort((a, b) => b[1] - a[1]);
@@ -642,9 +713,7 @@
                 return;
             }
             
-            // Generate word cloud HTML with sleek boxes
             const cloudHTML = fillers.map(([word, count], index) => {
-                // Stagger animation delays
                 const delay = index * 0.05;
                 
                 return `<div class="cloud-word" 
@@ -661,11 +730,9 @@
         function switchTab(tab) {
             currentTab = tab;
             
-            // Update tab buttons
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             event.target.classList.add('active');
             
-            // Update tab content
             document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
             document.getElementById(tab + 'Tab').classList.add('active');
         }
