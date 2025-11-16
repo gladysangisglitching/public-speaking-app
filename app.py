@@ -1,10 +1,9 @@
-# Create temporary files with proper extensionfrom flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import os
 from openai import OpenAI
 import tempfile
 import subprocess
-from collections import Counter
 import re
 
 
@@ -28,19 +27,23 @@ def extract_audio_ffmpeg(video_path, audio_path):
         # Get duration
         duration_cmd = ['ffprobe', '-v', 'error', '-show_entries', 'format=duration',
                        '-of', 'default=noprint_wrappers=1:nokey=1', video_path]
-        duration = float(subprocess.check_output(duration_cmd).decode().strip())
+        duration_result = subprocess.run(duration_cmd, capture_output=True, text=True)
+        
+        if duration_result.returncode != 0:
+            print(f"FFprobe error: {duration_result.stderr}")
+            raise Exception(f"Could not read video duration: {duration_result.stderr}")
+        
+        duration = float(duration_result.stdout.strip())
         print(f"Video duration: {duration} seconds")
         
         # Extract audio with better quality settings and error handling
-        # Use -loglevel error to suppress warnings but show errors
         cmd = ['ffmpeg', '-i', video_path, '-vn', '-acodec', 'libmp3lame', 
-               '-ar', '16000', '-ac', '1', '-b:a', '64k', '-y', '-loglevel', 'error', audio_path]
+               '-ar', '16000', '-ac', '1', '-b:a', '64k', '-y', audio_path]
         
         result = subprocess.run(cmd, capture_output=True, text=True)
         
         if result.returncode != 0:
             print(f"FFmpeg stderr: {result.stderr}")
-            print(f"FFmpeg stdout: {result.stdout}")
             raise Exception(f"Audio extraction failed: {result.stderr}")
         
         print(f"Audio extraction complete")
@@ -53,10 +56,6 @@ def extract_audio_ffmpeg(video_path, audio_path):
         print(f"Audio file size: {audio_size / (1024*1024):.2f} MB")
         
         return duration
-    except subprocess.CalledProcessError as e:
-        print(f"Audio extraction error: {e}")
-        print(f"Command output: {e.output if hasattr(e, 'output') else 'N/A'}")
-        raise
     except Exception as e:
         print(f"Audio extraction error: {e}")
         raise
@@ -64,17 +63,16 @@ def extract_audio_ffmpeg(video_path, audio_path):
 def compress_video(input_path, output_path, target_size_mb=15):
     """Compress video to target size while maintaining quality"""
     try:
-        # Get current video info
-        probe_cmd = ['ffprobe', '-v', 'error', '-select_streams', 'v:0',
-                     '-show_entries', 'stream=duration,bit_rate',
-                     '-of', 'default=noprint_wrappers=1', input_path]
-        
-        result = subprocess.run(probe_cmd, capture_output=True, text=True)
-        
         # Get duration
         duration_cmd = ['ffprobe', '-v', 'error', '-show_entries', 'format=duration',
                        '-of', 'default=noprint_wrappers=1:nokey=1', input_path]
-        duration = float(subprocess.check_output(duration_cmd).decode().strip())
+        duration_result = subprocess.run(duration_cmd, capture_output=True, text=True)
+        
+        if duration_result.returncode != 0:
+            print(f"Cannot get duration for compression, skipping: {duration_result.stderr}")
+            return input_path
+        
+        duration = float(duration_result.stdout.strip())
         
         # Calculate target bitrate (80% of target to leave room for audio)
         target_bitrate = int((target_size_mb * 8 * 1024 / duration) * 0.8)  # in kbps
@@ -84,19 +82,23 @@ def compress_video(input_path, output_path, target_size_mb=15):
         # Compress video
         compress_cmd = [
             'ffmpeg', '-i', input_path,
-            '-c:v', 'libx264',  # Use H.264 codec
-            '-b:v', f'{target_bitrate}k',  # Target video bitrate
-            '-maxrate', f'{target_bitrate * 1.5}k',  # Max bitrate
-            '-bufsize', f'{target_bitrate * 2}k',  # Buffer size
-            '-c:a', 'aac',  # Audio codec
-            '-b:a', '64k',  # Audio bitrate
-            '-preset', 'fast',  # Encoding speed
-            '-movflags', '+faststart',  # Enable streaming
-            '-y',  # Overwrite output
+            '-c:v', 'libx264',
+            '-b:v', f'{target_bitrate}k',
+            '-maxrate', f'{int(target_bitrate * 1.5)}k',
+            '-bufsize', f'{int(target_bitrate * 2)}k',
+            '-c:a', 'aac',
+            '-b:a', '64k',
+            '-preset', 'fast',
+            '-movflags', '+faststart',
+            '-y',
             output_path
         ]
         
-        subprocess.run(compress_cmd, check=True, capture_output=True)
+        result = subprocess.run(compress_cmd, capture_output=True, text=True)
+        
+        if result.returncode != 0:
+            print(f"Compression failed: {result.stderr}")
+            return input_path
         
         compressed_size = os.path.getsize(output_path)
         print(f"Compressed video size: {compressed_size / (1024*1024):.2f} MB")
@@ -105,7 +107,6 @@ def compress_video(input_path, output_path, target_size_mb=15):
         
     except Exception as e:
         print(f"Compression error: {e}")
-        # If compression fails, return original
         return input_path
 
 def transcribe_audio(audio_path):
@@ -194,33 +195,45 @@ def analyze_video():
         if file_size > 50 * 1024 * 1024:
             return jsonify({'error': 'Video file too large. Please use a video under 50MB (about 3 minutes).'}), 400
         
-        # Create temporary files
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as video_temp:
+        # Create temporary files with proper extension based on file type
+        file_ext = os.path.splitext(video_file.filename)[1] or '.mp4'
+        if file_ext.lower() not in ['.mp4', '.webm', '.mov', '.avi']:
+            file_ext = '.mp4'
+        
+        with tempfile.NamedTemporaryFile(delete=False, suffix=file_ext) as video_temp:
             video_file.save(video_temp.name)
             original_video_path = video_temp.name
         
+        print(f"Saved video to: {original_video_path}")
+        
         # Compress video if it's large
-        if file_size > 20 * 1024 * 1024:  # Compress if over 20MB
+        if file_size > 20 * 1024 * 1024:
             print("Video is large, compressing...")
-            compressed_video_path = original_video_path.replace('.mp4', '_compressed.mp4')
+            compressed_video_path = original_video_path.replace(file_ext, '_compressed.mp4')
             video_path = compress_video(original_video_path, compressed_video_path, target_size_mb=15)
             # Clean up original if compression succeeded
-            if video_path != original_video_path:
-                os.unlink(original_video_path)
+            if video_path != original_video_path and os.path.exists(original_video_path):
+                try:
+                    os.unlink(original_video_path)
+                except:
+                    pass
         else:
             video_path = original_video_path
         
-        audio_path = video_path.replace('.mp4', '.mp3')
+        audio_path = video_path.replace(file_ext, '.mp3')
         
         # Extract audio and get duration
         print("Extracting audio from video...")
         duration = extract_audio_ffmpeg(video_path, audio_path)
         
         # Check duration limit (3 minutes max to avoid timeouts)
-        if duration > 180:  # 3 minutes
-            os.unlink(video_path)
-            if os.path.exists(audio_path):
-                os.unlink(audio_path)
+        if duration > 180:
+            try:
+                os.unlink(video_path)
+                if os.path.exists(audio_path):
+                    os.unlink(audio_path)
+            except:
+                pass
             return jsonify({'error': f'Video is too long ({duration/60:.1f} minutes). Please use videos under 3 minutes.'}), 400
         
         # Transcribe using Whisper
@@ -247,8 +260,8 @@ def analyze_video():
             os.unlink(video_path)
             os.unlink(audio_path)
             print("Cleaned up temp files")
-        except:
-            pass
+        except Exception as cleanup_error:
+            print(f"Cleanup error: {cleanup_error}")
         
         result = {
             'transcript': transcript,
