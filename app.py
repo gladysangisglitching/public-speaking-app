@@ -31,10 +31,18 @@ def extract_audio_ffmpeg(video_path, audio_path):
         duration = float(subprocess.check_output(duration_cmd).decode().strip())
         print(f"Video duration: {duration} seconds")
         
-        # Extract audio with better quality settings
+        # Extract audio with better quality settings and error handling
+        # Use -loglevel error to suppress warnings but show errors
         cmd = ['ffmpeg', '-i', video_path, '-vn', '-acodec', 'libmp3lame', 
-               '-ar', '16000', '-ac', '1', '-b:a', '64k', '-y', audio_path]
-        result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+               '-ar', '16000', '-ac', '1', '-b:a', '64k', '-y', '-loglevel', 'error', audio_path]
+        
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        
+        if result.returncode != 0:
+            print(f"FFmpeg stderr: {result.stderr}")
+            print(f"FFmpeg stdout: {result.stdout}")
+            raise Exception(f"Audio extraction failed: {result.stderr}")
+        
         print(f"Audio extraction complete")
         
         # Verify audio file was created
@@ -45,6 +53,10 @@ def extract_audio_ffmpeg(video_path, audio_path):
         print(f"Audio file size: {audio_size / (1024*1024):.2f} MB")
         
         return duration
+    except subprocess.CalledProcessError as e:
+        print(f"Audio extraction error: {e}")
+        print(f"Command output: {e.output if hasattr(e, 'output') else 'N/A'}")
+        raise
     except Exception as e:
         print(f"Audio extraction error: {e}")
         raise
