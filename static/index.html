@@ -573,6 +573,23 @@ dropZone.addEventListener('dragover', handleDragOver);
 dropZone.addEventListener('dragleave', handleDragLeave);
 dropZone.addEventListener('drop', handleDrop);
 
+// Prevent unmuting the video element in Body Language tab
+videoElement.addEventListener('volumechange', (e) => {
+  if (!videoElement.muted) {
+    videoElement.muted = true;
+  }
+});
+
+// Also prevent any attempts to change muted state
+Object.defineProperty(videoElement, 'muted', {
+  get() {
+    return true;
+  },
+  set() {
+    // Silently ignore any attempts to unmute
+  }
+});
+
 function handleFileSelect(e) {
   if (!e.target.files.length) return;
   loadVideo(e.target.files[0]);
@@ -822,7 +839,7 @@ function displayWordCloud(fillerWords) {
     wordEl.className = 'cloud-word';
     wordEl.innerHTML = `
       <span class="cloud-word-text">${word}</span>
-      <span class="cloud-word-count">${count}</span>
+      <span class="cloud-word-count">x${count}</span>
     `;
     cloudContainer.appendChild(wordEl);
   });
