@@ -575,20 +575,14 @@ dropZone.addEventListener('drop', handleDrop);
 
 // Prevent unmuting the video element in Body Language tab
 videoElement.addEventListener('volumechange', (e) => {
-  if (!videoElement.muted) {
-    videoElement.muted = true;
-  }
+  videoElement.muted = true;
 });
 
-// Also prevent any attempts to change muted state
-Object.defineProperty(videoElement, 'muted', {
-  get() {
-    return true;
-  },
-  set() {
-    // Silently ignore any attempts to unmute
-  }
-});
+// Continuously monitor and enforce muted state
+setInterval(() => {
+  videoElement.muted = true;
+  videoElement.volume = 0;
+}, 100);
 
 function handleFileSelect(e) {
   if (!e.target.files.length) return;
